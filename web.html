@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UniConnect - UIGM Palembang Hub</title>
+    <!-- Framework & UI Library -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom": "https://esm.sh/react-dom@18.2.0",
+        "lucide-react": "https://esm.sh/lucide-react@0.263.0"
+      }
+    }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; scroll-behavior: smooth; font-size: 14px; }
+        .glass-nav { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(0,0,0,0.05); }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .service-card:hover { transform: translateY(-4px); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); }
+        .btn-active { transform: scale(0.97); }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 overflow-x-hidden">
+    <div id="root"></div>
+
+    <script type="module">
+        import React, { useState, useEffect, useMemo } from 'react';
+        import ReactDOM from 'react-dom';
+        import { 
+            Home, Store, History, User, LogOut, ChevronRight, Star, 
+            Clock, MapPin, Navigation, Truck, History as PrintIcon,
+            ShieldCheck, PlusCircle, BarChart3, Wallet, AlertCircle,
+            Coins, QrCode, Building2, Copy, ThumbsUp, X, Check, ArrowLeft,
+            MessageCircle, Search, Smartphone
+        } from 'lucide-react';
+
+        // --- Generator 75 Data Layanan Fiktif ---
+        const generateData = () => {
+            const items = [];
+            const types = ['Kantin', 'Kos', 'Laundry', 'Fotokopi', 'Ojek'];
+            types.forEach(type => {
+                for (let i = 1; i <= 15; i++) {
+                    let name, img, price, desc, category = 'Semua';
+                    if (type === 'Kantin') {
+                        name = i === 1 ? 'Kantin Mbak Sri' : i === 2 ? 'Geprek Juara' : `Warung Makan ${i}`;
+                        img = `https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&q=40&w=400&h=300&sig=food${i}`;
+                        price = 12000 + (i * 1000);
+                        desc = "Hidangan segar, nikmat, dan sangat bersahabat dengan kantong mahasiswa UIGM.";
+                    } else if (type === 'Kos') {
+                        name = `Kos ${['Melati', 'Bakti', 'Indah', 'Asri'][i%4]} ${i}`;
+                        img = `https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=40&w=400&h=300&sig=kos${i}`;
+                        price = 650000 + (i * 20000);
+                        category = i % 2 === 0 ? 'Putra' : 'Putri';
+                        desc = "Hunian nyaman dengan fasilitas lengkap: WiFi kencang, Kamar Mandi Dalam, Kasur.";
+                    } else if (type === 'Laundry') {
+                        name = `Laundry Harum ${i}`;
+                        img = `https://images.unsplash.com/photo-1545173153-5dd9215c6f3d?auto=format&fit=crop&q=40&w=400&h=300&sig=lau${i}`;
+                        price = 6000 + (i * 500);
+                        desc = "Cuci kering gosok kilat. Pakaian Anda kami jaga dengan deterjen premium.";
+                    } else if (type === 'Fotokopi') {
+                        name = `Print & Copy ${i}`;
+                        img = `https://images.unsplash.com/photo-1562654501-a0ccc0fc3fb1?auto=format&fit=crop&q=40&w=400&h=300&sig=print${i}`;
+                        price = 500 + (i * 50);
+                        desc = "Print tugas, skripsi, dan fotokopi murah berkualitas tinggi untuk deadline.";
+                    } else {
+                        name = `Driver Ojek UIGM ${i}`;
+                        img = `https://images.unsplash.com/photo-1558981403-c5f91cbba527?auto=format&fit=crop&q=40&w=400&h=300&sig=ojek${i}`;
+                        price = 5000;
+                        desc = "Antar jemput area UIGM & sekitarnya dengan aman dan driver terverifikasi.";
+                    }
+                    items.push({
+                        id: `${type}-${i}`,
+                        name, type, price, desc, category,
+                        image: img,
+                        distance: `${(0.1 + (i * 0.1)).toFixed(1)} km`,
+                        rating: (4.0 + (Math.random() * 1.0)).toFixed(1)
+                    });
+                }
+            });
+            return items;
+        };
+
+        const MOCK_SERVICES = generateData();
+
+        const App = () => {
+            const [view, setView] = useState('home');
+            const [user, setUser] = useState(null);
+            const [loading, setLoading] = useState(false);
+            const [serviceFilter, setServiceFilter] = useState('Kantin');
+            const [activeTab, setActiveTab] = useState('Semua');
+            const [selectedService, setSelectedService] = useState(null);
+            const [showPayment, setShowPayment] = useState(false);
+            const [paymentMethod, setPaymentMethod] = useState('CASH');
+            const [showSuccess, setShowSuccess] = useState(false);
+            const [orders, setOrders] = useState([]);
+            const [mitraType, setMitraType] = useState('Kantin');
+            const [ojekPickup, setOjekPickup] = useState('');
+            const [ojekDest, setOjekDest] = useState('');
+
+            const login = (role) => {
+                setLoading(true);
+                setTimeout(() => {
+                    const isMitra = role === 'MITRA';
+                    let name = isMitra ? 'Kantin Mbak Sri (Owner)' : 'Yesa Damayanti';
+                    if (isMitra) {
+                        if (mitraType === 'Kos') name = 'Manajemen Kos Melati';
+                        if (mitraType === 'Ojek') name = 'Koordinator Ojek UIGM';
+                        if (mitraType === 'Laundry') name = 'Harum Laundry Hub';
+                    }
+                    setUser({ name, role, email: isMitra ? 'owner@mitra.uigm.ac.id' : 'yesa@students.uigm.ac.id', npm: isMitra ? undefined : '2023210127' });
+                    setLoading(false);
+                    setView(isMitra ? 'mitra-dashboard' : 'home');
+                }, 800);
+            };
+
+            const confirmPayment = () => {
+                setLoading(true);
+                setTimeout(() => {
+                    const billingCode = `UC-${Math.floor(Math.random() * 900000) + 100000}`;
+                    setOrders([{
+                        id: Math.random().toString(36).substr(2, 9),
+                        name: selectedService.name,
+                        amount: selectedService.price * 1.05,
+                        date: new Date().toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+                        status: selectedService.type === 'Ojek' ? 'Driver Menuju Lokasi' : 'Disiapkan',
+                        code: billingCode,
+                        type: selectedService.type
+                    }, ...orders]);
+                    setLoading(false);
+                    setShowPayment(false);
+                    setShowSuccess(true);
+                }, 1200);
+            };
+
+            const filtered = useMemo(() => 
+                MOCK_SERVICES.filter(s => s.type === serviceFilter && (activeTab === 'Semua' || s.category === activeTab))
+            , [serviceFilter, activeTab]);
+
+            return (
+                <div className="min-h-screen flex flex-col bg-slate-50">
+                    {loading && (
+                        <div className="fixed inset-0 bg-white/90 z-[100] flex flex-col items-center justify-center">
+                            <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+                            <p className="text-[11px] font-bold text-blue-600 uppercase tracking-widest animate-pulse">Menghubungkan ke Portal SSO...</p>
+                        </div>
+                    )}
+
+                    {/* Navigasi Bar */}
+                    <nav className="sticky top-0 z-40 glass-nav h-16 px-4 flex items-center justify-between shadow-sm">
+                        <div className="flex items-center cursor-pointer group" onClick={() => setView('home')}>
+                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-md group-hover:scale-105 transition-all">U</div>
+                            <div className="ml-3">
+                                <h1 className="text-base font-black tracking-tight leading-none">UniConnect</h1>
+                                <p className="text-[9px] font-bold text-blue-500 uppercase tracking-tighter">UIGM Palembang Hub</p>
+                            </div>
+                        </div>
+
+                        <div className="hidden md:flex space-x-8 text-[13px] font-bold uppercase tracking-wider">
+                            <button onClick={() => setView('home')} className={view === 'home' ? 'text-blue-600' : 'text-slate-500 hover:text-blue-600 transition-colors'}>Beranda</button>
+                            {user?.role !== 'MITRA' && <button onClick={() => setView('layanan')} className={view === 'layanan' ? 'text-blue-600' : 'text-slate-500 hover:text-blue-600 transition-colors'}>Layanan</button>}
+                            {user?.role === 'USER' && <button onClick={() => setView('riwayat')} className={view === 'riwayat' ? 'text-blue-600' : 'text-slate-500 hover:text-blue-600 transition-colors'}>Riwayat</button>}
+                            {user?.role === 'MITRA' && <button onClick={() => setView('mitra-dashboard')} className={view === 'mitra-dashboard' ? 'text-blue-600' : 'text-slate-500 hover:text-blue-600 transition-colors'}>Dashboard</button>}
+                        </div>
+
+                        <div className="flex items-center space-x-4">
+                            {user ? (
+                                <div className="flex items-center space-x-3">
+                                    <div className="text-right hidden sm:block">
+                                        <p className="text-xs font-bold leading-none mb-0.5">{user.name}</p>
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">{user.role === 'USER' ? 'Mahasiswa' : 'Mitra UMKM'}</p>
+                                    </div>
+                                    <button onClick={() => {setUser(null); setView('home');}} className="p-2 text-slate-300 hover:text-red-500 transition-colors" title="Keluar"><LogOut size={18}/></button>
+                                </div>
+                            ) : (
+                                <div className="flex gap-2">
+                                    <button onClick={() => setView('login-user')} className="px-4 py-2 text-blue-600 text-[11px] font-bold border border-blue-100 rounded-lg hover:bg-blue-50 transition-all">SSO MAHASISWA</button>
+                                    <button onClick={() => setView('login-mitra')} className="px-4 py-2 bg-blue-600 text-white text-[11px] font-bold rounded-lg shadow-sm hover:bg-blue-700 transition-all">MITRA UMKM</button>
+                                </div>
+                            )}
+                        </div>
+                    </nav>
+
+                    <main className="flex-grow">
+                        {/* BERANDA / HERO */}
+                        {view === 'home' && (
+                            <div className="py-20 px-4 max-w-5xl mx-auto text-center animate-in fade-in duration-700">
+                                <div className="inline-flex items-center space-x-2 px-4 py-1.5 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full uppercase tracking-[0.2em] mb-8 border border-blue-100 shadow-sm">
+                                    <ShieldCheck size={14}/> <span>Official Student Hub</span>
+                                </div>
+                                <h2 className="text-4xl md:text-6xl font-black text-slate-900 mb-8 leading-tight tracking-tight">Eksosistem Digital <br/> <span className="text-blue-600">Terpadu Mahasiswa UIGM</span></h2>
+                                <p className="text-slate-500 text-base max-w-2xl mx-auto mb-12 leading-relaxed font-medium">Temukan layanan terbaik mulai dari Kantin Mbak Sri, kos-kosan strategis, hingga ojek kampus dalam satu aplikasi resmi Universitas Indo Global Mandiri.</p>
+                                <div className="flex flex-col sm:flex-row justify-center gap-4">
+                                    <button onClick={() => setView('layanan')} className="px-10 py-4 bg-blue-600 text-white font-bold rounded-xl text-xs uppercase tracking-widest shadow-xl shadow-blue-200 hover:-translate-y-1 active:scale-95 transition-all">Mulai Pesan Sekarang</button>
+                                    <button onClick={() => setView('login-mitra')} className="px-10 py-4 bg-white text-slate-600 font-bold rounded-xl text-xs border border-slate-200 uppercase tracking-widest hover:bg-slate-50 active:scale-95 transition-all flex items-center justify-center gap-3"><Store size={16}/> Daftar Jadi Mitra</button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* LIST LAYANAN / MARKETPLACE */}
+                        {view === 'layanan' && (
+                            <div className="max-w-7xl mx-auto px-4 py-12 flex flex-col lg:flex-row gap-8 animate-in slide-in-from-bottom-4 duration-500">
+                                <aside className="lg:w-1/4">
+                                    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm sticky top-24">
+                                        <h3 className="text-[11px] font-black uppercase text-slate-400 mb-6 tracking-widest">Kategori Layanan</h3>
+                                        <div className="space-y-2">
+                                            {['Kantin', 'Kos', 'Laundry', 'Fotokopi', 'Ojek'].map(t => (
+                                                <button key={t} onClick={() => setServiceFilter(t)} className={`w-full flex items-center justify-between px-5 py-3.5 rounded-2xl text-[13px] font-bold transition-all ${serviceFilter === t ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'hover:bg-slate-50 text-slate-500'}`}>
+                                                    <span className="flex items-center gap-4">
+                                                        {t === 'Kantin' && <Clock size={18}/>}
+                                                        {t === 'Kos' && <Home size={18}/>}
+                                                        {t === 'Laundry' && <Truck size={18}/>}
+                                                        {t === 'Fotokopi' && <PrintIcon size={18}/>}
+                                                        {t === 'Ojek' && <Navigation size={18}/>}
+                                                        {t}
+                                                    </span>
+                                                    {serviceFilter === t && <Check size={16}/>}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </aside>
+
+                                <div className="lg:w-3/4">
+                                    <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
+                                        <h2 className="text-2xl font-black text-slate-800 tracking-tight">{serviceFilter} <span className="text-blue-600">Sekitar UIGM</span></h2>
+                                        <div className="flex bg-slate-200/50 p-1 rounded-xl shadow-inner border border-slate-100">
+                                            {['Semua', 'Putri', 'Putra'].map(tab => (
+                                                <button key={tab} onClick={() => setActiveTab(tab)} className={`px-6 py-2 text-[11px] font-black rounded-lg transition-all ${activeTab === tab ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{tab}</button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid gap-5">
+                                        {filtered.length > 0 ? filtered.map(s => (
+                                            <div key={s.id} className="service-card bg-white p-5 rounded-3xl border border-slate-100 flex flex-col sm:flex-row items-center gap-6 cursor-pointer transition-all duration-300 group shadow-sm" onClick={() => setSelectedService(s)}>
+                                                <div className="w-full sm:w-40 h-32 rounded-2xl overflow-hidden shadow-md">
+                                                    <img src={s.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={s.name} />
+                                                </div>
+                                                <div className="flex-grow text-center sm:text-left">
+                                                    <div className="flex items-center justify-center sm:justify-start gap-3 mb-2">
+                                                        <h4 className="font-bold text-lg text-slate-800 tracking-tight leading-none">{s.name}</h4>
+                                                        <span className="flex items-center text-amber-500 text-[11px] font-bold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100"><Star size={11} className="fill-current mr-1"/> {s.rating}</span>
+                                                    </div>
+                                                    <p className="text-slate-400 text-sm line-clamp-2 mb-4 font-medium leading-relaxed">{s.desc}</p>
+                                                    <div className="flex justify-center sm:justify-start gap-6 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                                                        <span className="flex items-center"><MapPin size={14} className="mr-2 text-red-500"/> {s.distance}</span>
+                                                        <span className="flex items-center"><Clock size={14} className="mr-2 text-blue-500"/> Siap Melayani</span>
+                                                    </div>
+                                                </div>
+                                                <div className="text-center sm:text-right bg-slate-50 p-6 rounded-2xl border border-slate-100 w-full sm:w-auto flex flex-col justify-center">
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 leading-none">Mulai Dari</p>
+                                                    <p className="text-lg font-black text-blue-700 mb-3 tracking-tighter">Rp {s.price.toLocaleString('id-ID')}</p>
+                                                    <button className="px-6 py-2 bg-blue-600 text-white text-[11px] font-bold rounded-lg shadow-md hover:bg-blue-700 transition-all active:scale-95">LIHAT DETAIL</button>
+                                                </div>
+                                            </div>
+                                        )) : (
+                                            <div className="py-20 text-center bg-white rounded-3xl border border-slate-100 shadow-sm">
+                                                <Search size={48} className="mx-auto text-slate-200 mb-4" />
+                                                <p className="text-slate-400 font-bold uppercase text-xs tracking-widest">Tidak ada data ditemukan.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* RIWAYAT PESANAN */}
+                        {view === 'riwayat' && (
+                            <div className="max-w-2xl mx-auto px-4 py-16 animate-in fade-in duration-500">
+                                <h2 className="text-2xl font-black mb-8 flex items-center gap-4 text-slate-800 tracking-tight leading-none"><History size={32} className="text-blue-600"/> Riwayat Pesanan Saya</h2>
+                                <div className="space-y-4">
+                                    {orders.length > 0 ? orders.map(o => (
+                                        <div key={o.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all">
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div className="flex gap-4">
+                                                    <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
+                                                        {o.type === 'Ojek' ? <Navigation size={24}/> : <Store size={24}/>}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.2em] leading-none mb-1">Billing ID: {o.code}</p>
+                                                        <h4 className="font-bold text-base text-slate-800 leading-none">{o.name}</h4>
+                                                    </div>
+                                                </div>
+                                                <span className={`text-[10px] font-black px-3 py-1 rounded-lg border uppercase tracking-wider ${
+                                                    o.status === 'Selesai' || o.status === 'Sukses' ? 'bg-green-50 text-green-600 border-green-100' : 'bg-amber-50 text-amber-600 border-amber-100'
+                                                }`}>{o.status}</span>
+                                            </div>
+                                            <div className="flex justify-between items-end border-t border-slate-50 pt-5">
+                                                <div className="flex items-center gap-2 text-xs text-slate-400 font-bold tracking-tight">
+                                                    <Clock size={16}/> {o.date}
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-[10px] font-bold text-slate-300 uppercase leading-none mb-1">Total Pembayaran</p>
+                                                    <p className="font-black text-blue-700 text-lg leading-none tracking-tighter">Rp {o.amount.toLocaleString('id-ID')}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )) : (
+                                        <div className="py-24 text-center bg-white rounded-[2.5rem] border-2 border-dashed border-slate-200 shadow-inner">
+                                            <History size={48} className="mx-auto text-slate-200 mb-6" />
+                                            <h4 className="text-lg font-bold text-slate-400 uppercase tracking-widest leading-none mb-4">Belum Ada Pesanan Aktif</h4>
+                                            <button onClick={() => setView('layanan')} className="px-8 py-3 bg-blue-600 text-white font-bold rounded-xl text-xs uppercase tracking-widest shadow-lg">Pesan Layanan Sekarang</button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* PORTAL LOGIN USER / MAHASISWA */}
+                        {view === 'login-user' && (
+                            <div className="max-w-4xl mx-auto py-20 px-4 flex flex-col md:flex-row bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-500">
+                                <div className="md:w-1/2 bg-blue-800 p-12 text-white flex flex-col justify-between relative overflow-hidden">
+                                    <div className="absolute -top-10 -right-10 opacity-10"><Smartphone size={300} /></div>
+                                    <div className="relative z-10">
+                                        <h2 className="text-3xl font-black mb-6 leading-tight tracking-tight">Portal SSO <br/> UIGM Palembang</h2>
+                                        <p className="text-sm text-blue-100 leading-relaxed font-medium opacity-80">Gunakan akun resmi portal akademik mahasiswa untuk mengakses seluruh ekosistem layanan UniConnect.</p>
+                                    </div>
+                                    <div className="p-5 bg-white/10 rounded-2xl border border-white/20 flex items-center gap-5 backdrop-blur-md relative z-10">
+                                        <div className="p-2.5 bg-green-400 rounded-xl text-blue-900 shadow-lg"><Check size={24}/></div>
+                                        <div>
+                                            <p className="text-[11px] font-black uppercase tracking-widest leading-none mb-1">Akses Terpusat</p>
+                                            <p className="text-[10px] font-bold text-blue-200">Terintegrasi IT Support UIGM</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="md:w-1/2 p-12 flex flex-col justify-center bg-white">
+                                    <h3 className="text-xl font-black mb-10 text-slate-800 tracking-tight leading-none">Login Mahasiswa</h3>
+                                    <div className="space-y-6">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 tracking-widest">Username / NPM</label>
+                                            <input type="text" placeholder="2023210127" defaultValue="2023210127" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100 transition-all" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 tracking-widest">Sandi Portal</label>
+                                            <input type="password" placeholder="Sandi SSO Anda" defaultValue="password" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100 transition-all" />
+                                        </div>
+                                        <button onClick={() => login('USER')} className="w-full py-4.5 bg-blue-600 text-white text-xs font-bold rounded-2xl shadow-xl hover:bg-blue-700 transition-all active:scale-95 uppercase tracking-widest">Masuk SSO Sekarang</button>
+                                        <p className="text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest pt-4">© IT SUPPORT UIGM PALEMBANG</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* PORTAL LOGIN MITRA */}
+                        {view === 'login-mitra' && (
+                            <div className="max-w-md mx-auto py-20 px-4">
+                                <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl border border-slate-100 animate-in zoom-in-95">
+                                    <h3 className="text-xl font-black text-center mb-1 leading-none tracking-tight text-slate-800">Login Hub Mitra</h3>
+                                    <p className="text-[11px] font-bold text-slate-400 text-center mb-10 leading-relaxed uppercase tracking-widest opacity-60">Pusat Manajemen UMKM Kampus</p>
+                                    <div className="space-y-6">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 tracking-widest">Unit Bisnis</label>
+                                            <select value={mitraType} onChange={e => setMitraType(e.target.value)} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none cursor-pointer hover:bg-slate-100 transition-all appearance-none">
+                                                <option value="Kantin">Kantin / Rumah Makan</option>
+                                                <option value="Kos">Properti / Indekos</option>
+                                                <option value="Laundry">Jasa Laundry & Cuci</option>
+                                                <option value="Ojek">Layanan Driver Kampus</option>
+                                                <option value="Fotokopi">Percetakan & ATK</option>
+                                            </select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 tracking-widest">Identitas Terdaftar</label>
+                                            <input type="email" placeholder="owner@mitra.uigm.ac.id" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100 transition-all" />
+                                        </div>
+                                        <button onClick={() => login('MITRA')} className="w-full py-4.5 bg-slate-900 text-white text-xs font-bold rounded-2xl shadow-lg hover:bg-black transition-all flex items-center justify-center gap-3 uppercase tracking-widest"><ShieldCheck size={18}/> Buka Portal Mitra</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* DASHBOARD MITRA UMKM */}
+                        {view === 'mitra-dashboard' && (
+                            <div className="max-w-6xl mx-auto px-4 py-12 animate-in fade-in duration-500">
+                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-8">
+                                    <div>
+                                        <h2 className="text-3xl font-black text-slate-900 leading-none mb-3 tracking-tight">{user.name}</h2>
+                                        <p className="text-sm text-slate-500 font-bold uppercase tracking-widest opacity-60">Pusat Kontrol Bisnis UniConnect</p>
+                                    </div>
+                                    <div className="flex gap-4 w-full md:w-auto">
+                                        <button className="flex-1 md:flex-none px-6 py-3 bg-white border border-slate-200 text-slate-600 text-[11px] font-black rounded-xl hover:bg-slate-50 transition-all flex items-center justify-center gap-3 uppercase tracking-wider"><PlusCircle size={16}/> Kelola Produk</button>
+                                        <button className="flex-1 md:flex-none px-6 py-3 bg-blue-600 text-white text-[11px] font-black rounded-xl shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all uppercase tracking-wider">Laporan Keuangan</button>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                                    {[
+                                        { l: 'Total Penjualan', v: 'Rp 1.450.000', i: <BarChart3 className="text-green-500"/>, d: 'Estimasi Bruto' },
+                                        { l: 'Order Menunggu', v: '18 Aktif', i: <Clock className="text-amber-500"/>, d: 'Harus diproses' },
+                                        { l: 'Komisi UniConnect', v: 'Rp 72.500', i: <AlertCircle className="text-red-500"/>, d: 'Pajak Platform 5%' },
+                                        { l: 'Saldo Siap Tarik', v: 'Rp 1.377.500', i: <Wallet className="text-blue-600"/>, d: 'Dompet Digital' }
+                                    ].map((s, idx) => (
+                                        <div key={idx} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all">
+                                            <div className="flex justify-between items-center mb-5">
+                                                <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{s.l}</span>
+                                                <div className="p-2.5 bg-slate-50 rounded-xl">{s.i}</div>
+                                            </div>
+                                            <p className="text-2xl font-black text-slate-900 leading-none mb-1 tracking-tighter">{s.v}</p>
+                                            <p className="text-[10px] font-bold text-slate-400 italic opacity-60">{s.d}</p>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                                    <h3 className="text-lg font-black mb-8 text-slate-800 tracking-tight leading-none">Antrean Pesanan Masuk</h3>
+                                    <div className="py-12 text-center border-2 border-dashed border-slate-100 rounded-3xl">
+                                        <Smartphone size={40} className="mx-auto text-slate-200 mb-4" />
+                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Semua pesanan telah diproses.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </main>
+
+                    {/* Footer / Hak Cipta */}
+                    <footer className="py-16 text-center border-t border-slate-100 bg-white">
+                        <div className="flex justify-center items-center mb-8">
+                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-black text-base shadow-lg">U</div>
+                            <span className="ml-3 font-black text-lg tracking-tighter text-slate-900">UniConnect Hub</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.4em] mb-4">Sistem Informasi Ekosistem Mahasiswa UIGM</p>
+                        <p className="text-[11px] text-slate-300 font-bold uppercase tracking-widest">© 2025 YESA DAMAYANTI • UNIVERSITAS INDO GLOBAL MANDIRI</p>
+                    </footer>
+
+                    {/* MODAL: DETAIL PRODUK / JASA */}
+                    {selectedService && !showPayment && !showSuccess && (
+                        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+                            <div className="bg-white w-full max-w-2xl rounded-[2.5rem] overflow-hidden animate-in zoom-in-95 duration-500 shadow-2xl my-8">
+                                <div className="relative h-64 sm:h-80">
+                                    <img src={selectedService.image} className="w-full h-full object-cover" alt={selectedService.name} />
+                                    <button onClick={() => setSelectedService(null)} className="absolute top-6 right-6 p-2.5 bg-black/40 hover:bg-black/60 text-white rounded-2xl backdrop-blur-md transition-all shadow-xl active:scale-90"><X size={24}/></button>
+                                    <div className="absolute bottom-6 left-6">
+                                        <div className="bg-white/95 backdrop-blur-xl px-5 py-2 rounded-2xl shadow-xl border border-white/40">
+                                            <p className="text-[9px] font-black text-blue-600 uppercase tracking-[0.3em] mb-0.5">Layanan</p>
+                                            <p className="text-sm font-black text-slate-900 tracking-tight uppercase leading-none">{selectedService.type}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="p-10">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start mb-8 gap-6">
+                                        <div className="max-w-md">
+                                            <h3 className="text-3xl font-black mb-3 leading-none tracking-tight text-slate-900">{selectedService.name}</h3>
+                                            <div className="flex items-center gap-4">
+                                                <span className="flex items-center text-amber-500 text-sm font-black bg-amber-50 px-3 py-1 rounded-xl border border-amber-100"><Star size={14} className="fill-current mr-2"/> {selectedService.rating}</span>
+                                                <span className="text-slate-400 text-xs font-bold uppercase tracking-widest flex items-center gap-2"><MapPin size={16} className="text-red-500"/> {selectedService.distance}</span>
+                                            </div>
+                                        </div>
+                                        <div className="text-left sm:text-right bg-slate-50 p-6 rounded-2xl border border-slate-100 min-w-[200px] shadow-inner">
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5 leading-none">Tarif Dasar</p>
+                                            <p className="text-2xl font-black text-blue-700 leading-none tracking-tighter">Rp {selectedService.price.toLocaleString('id-ID')}</p>
+                                        </div>
+                                    </div>
+                                    <p className="text-slate-500 text-sm leading-relaxed mb-10 font-medium opacity-80">{selectedService.desc}</p>
+                                    
+                                    {selectedService.type === 'Ojek' && (
+                                        <div className="space-y-4 mb-10 bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100 shadow-inner">
+                                            <div className="flex items-center gap-3 text-[10px] font-black text-slate-800 uppercase tracking-widest mb-4"><Navigation size={18} className="text-blue-500"/> Tentukan Rute</div>
+                                            <div className="space-y-3">
+                                                <input type="text" placeholder="Titik Jemput (Contoh: Lobi Utama UIGM)" value={ojekPickup} onChange={e => setOjekPickup(e.target.value)} className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:ring-4 focus:ring-blue-100 transition-all shadow-sm" />
+                                                <input type="text" placeholder="Tujuan Akhir (Contoh: Kos Melati)" value={ojekDest} onChange={e => setOjekDest(e.target.value)} className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:ring-4 focus:ring-blue-100 transition-all shadow-sm" />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <button onClick={() => { if(!user) {setView('login-user'); setSelectedService(null);} else {setShowPayment(true);} }} className="w-full py-5 bg-blue-600 text-white text-xs font-black rounded-2xl shadow-2xl shadow-blue-200 hover:bg-blue-700 transition-all flex items-center justify-center gap-4 active:scale-95 uppercase tracking-widest">Selesaikan Pesanan Sekarang <ChevronRight size={22}/></button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* MODAL: PILIH PEMBAYARAN */}
+                    {showPayment && (
+                        <div className="fixed inset-0 bg-slate-950/95 z-[60] flex items-center justify-center p-4 overflow-y-auto">
+                            <div className="bg-white w-full max-w-md rounded-[3rem] p-10 animate-in slide-in-from-bottom-8 duration-500 my-8 shadow-2xl">
+                                <div className="flex justify-between items-center mb-10">
+                                    <button onClick={() => setShowPayment(false)} className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all active:scale-90"><ArrowLeft size={20}/></button>
+                                    <h3 className="text-xl font-black tracking-tight text-slate-800 leading-none">Metode Bayar</h3>
+                                    <div className="w-10 h-10"></div>
+                                </div>
+
+                                <div className="space-y-4 mb-10">
+                                    {[
+                                        { id: 'CASH', l: 'Bayar Tunai', d: 'Bayar saat jasa/barang tiba', i: <Coins className="text-amber-500" size={26}/> },
+                                        { id: 'QRIS', l: 'QRIS Dinamis', d: 'Scan di OVO / Dana / Gopay', i: <QrCode className="text-purple-600" size={26}/> },
+                                        { id: 'BANK', l: 'Transfer Bank (VA)', d: 'Virtual Account Mandiri / BCA', i: <Building2 className="text-blue-600" size={26}/> }
+                                    ].map(m => (
+                                        <button key={m.id} onClick={() => setPaymentMethod(m.id)} className={`w-full flex items-center justify-between p-6 rounded-3xl border-4 transition-all group active:scale-[0.98] ${paymentMethod === m.id ? 'border-blue-600 bg-blue-50/50 shadow-lg' : 'border-slate-50 hover:border-blue-100 hover:bg-slate-50'}`}>
+                                            <div className="flex items-center gap-5">
+                                                <div className="p-3.5 bg-white rounded-2xl shadow-md group-hover:scale-110 transition-transform">{m.i}</div>
+                                                <div className="text-left">
+                                                    <p className="font-black text-sm text-slate-800 tracking-tight leading-none mb-1">{m.l}</p>
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{m.d}</p>
+                                                </div>
+                                            </div>
+                                            {paymentMethod === m.id && <div className="bg-blue-600 text-white p-1.5 rounded-full shadow-lg"><Check size={16}/></div>}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {paymentMethod === 'QRIS' && (
+                                    <div className="bg-slate-50 p-8 rounded-[2.5rem] mb-10 text-center animate-in zoom-in-95 border-2 border-slate-100 shadow-inner">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Pindai QRIS UniConnect Hub</p>
+                                        <div className="bg-white p-5 rounded-3xl border border-slate-200 inline-block shadow-2xl">
+                                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=UIGM-PAY-${selectedService.id}-${Date.now()}`} className="w-48 h-48 rounded-lg" alt="QRIS" />
+                                        </div>
+                                        <p className="mt-6 text-[11px] text-slate-400 font-bold italic opacity-60">"Scan menggunakan aplikasi Mobile Banking atau E-Wallet"</p>
+                                    </div>
+                                )}
+
+                                {paymentMethod === 'BANK' && (
+                                    <div className="bg-slate-50 p-8 rounded-[2.5rem] mb-10 animate-in zoom-in-95 text-center border-2 border-slate-100 shadow-inner">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">No. Virtual Account Mandiri</p>
+                                        <div className="flex items-center justify-between bg-white px-6 py-5 rounded-2xl border border-slate-200 shadow-xl">
+                                            <p className="text-xl font-black text-blue-700 tracking-[0.2em] font-mono leading-none">889210049281</p>
+                                            <button className="text-blue-600 p-2.5 hover:bg-blue-50 rounded-xl active:scale-75 transition-all shadow-sm"><Copy size={20}/></button>
+                                        </div>
+                                        <p className="mt-6 text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">A/N UNICONNECT UIGM PALEMBANG</p>
+                                    </div>
+                                )}
+
+                                <div className="p-8 bg-blue-50 rounded-[2.5rem] mb-10 text-center border-2 border-blue-100 shadow-inner">
+                                    <p className="text-[11px] font-black text-blue-400 uppercase mb-2 tracking-widest">Total Bayar (Incl. Pajak 5%)</p>
+                                    <p className="text-4xl font-black text-blue-950 tracking-tighter leading-none">Rp {(selectedService.price * 1.05).toLocaleString('id-ID')}</p>
+                                </div>
+
+                                <button onClick={confirmPayment} className="w-full py-5 bg-blue-600 text-white text-xs font-black rounded-2xl shadow-2xl shadow-blue-100 hover:bg-blue-700 transition-all flex items-center justify-center gap-4 uppercase tracking-[0.2em] active:scale-95"><ShieldCheck size={22}/> Konfirmasi Bayar</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* OVERLAY: BERHASIL PESAN */}
+                    {showSuccess && (
+                        <div className="fixed inset-0 bg-white z-[90] flex items-center justify-center p-10 animate-in fade-in duration-500">
+                            <div className="max-w-md w-full text-center">
+                                <div className="relative w-48 h-48 mx-auto mb-16">
+                                    <div className="absolute inset-0 bg-green-100 rounded-[3.5rem] animate-ping opacity-25"></div>
+                                    <div className="relative w-full h-full bg-green-500 text-white rounded-[3.5rem] flex items-center justify-center shadow-2xl animate-in zoom-in-50 duration-700">
+                                        <ThumbsUp size={96} />
+                                    </div>
+                                </div>
+                                <h3 className="text-4xl font-black mb-6 tracking-tighter leading-none text-slate-900">Pesanan Sukses!</h3>
+                                <p className="text-sm text-slate-400 font-bold mb-16 leading-relaxed px-10 uppercase tracking-widest opacity-60">Pembayaran Diterima. Mitra UMKM UIGM sedang memproses layanan Anda sekarang.</p>
+                                <div className="space-y-4">
+                                    <button onClick={() => {setShowSuccess(false); setSelectedService(null); setView('riwayat');}} className="w-full py-5 bg-blue-600 text-white text-xs font-black rounded-2xl shadow-2xl shadow-blue-100 flex items-center justify-center gap-4 uppercase tracking-widest active:scale-95">Lihat Pesanan Saya <ChevronRight size={20}/></button>
+                                    <button onClick={() => {setShowSuccess(false); setSelectedService(null); setView('home');}} className="w-full py-4.5 bg-slate-50 text-slate-500 text-xs font-black rounded-2xl hover:bg-slate-100 transition-all active:scale-95 uppercase tracking-widest">Kembali Beranda</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* TOMBOL BANTUAN TERAPUNG */}
+                    <button className="fixed bottom-8 right-8 w-16 h-16 bg-green-500 text-white rounded-2xl shadow-2xl flex items-center justify-center hover:scale-110 active:scale-90 transition-all z-30 border-4 border-white/40 group">
+                        <MessageCircle size={32} className="group-hover:rotate-12 transition-transform" />
+                        <span className="absolute right-20 bg-slate-900 text-white text-[10px] font-black px-4 py-2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-widest whitespace-nowrap shadow-xl">Bantuan IT Hub</span>
+                    </button>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
